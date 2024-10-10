@@ -7,7 +7,12 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "prepare": "husky"
+    "prepare": "husky",
+    "test": "echo 'Running tests...'"
+  },
+  "lint-staged": {
+    "*.ts": "eslint --cache --fix",
+    "*.tsx": "eslint --cache --fix"
   },
   "dependencies": {
     "axios": "^1.7.7",
@@ -16,6 +21,8 @@
     "react-dom": "^18"
   },
   "devDependencies": {
+    "@commitlint/cli": "^19.5.0",
+    "@commitlint/config-conventional": "^19.5.0",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

@@ -1,0 +1,1 @@
+export { BlacklistLookup as default } from './BlacklistLookup';
