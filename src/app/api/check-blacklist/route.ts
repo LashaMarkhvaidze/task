@@ -1,25 +1,5 @@
 import { NextResponse } from 'next/server';
 
-const fetchWithRetry = async (url: string, options: RequestInit, retries: number = 3): Promise<unknown> => {
-    try {
-        const response = await fetch(url, options);
-        if (!response.ok) {
-            const errorResponse = await response.json();
-            console.error('Error fetching data from lookup API:', errorResponse);
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return await response.json();
-    } catch (error) {
-        if (retries > 0) {
-            console.warn(`Retrying... attempts left: ${retries}`);
-            await new Promise(res => setTimeout(res, 1000));
-            return fetchWithRetry(url, options, retries - 1);
-        }
-        console.error('Failed to fetch after retries:', error);
-        throw error; 
-    }
-};
-
 export async function POST(req: Request) {
     try {
         const { numbers }: { numbers?: string[] } = await req.json();
@@ -29,15 +9,38 @@ export async function POST(req: Request) {
         }
 
         const apiKey = process.env.BLACKLIST_API_KEY;
+
         const results = await Promise.all(numbers.map(async (phone) => {
-            const url = `https://api.blacklistalliance.net/lookup?key=${apiKey}&phone=${phone}`;
-            return fetchWithRetry(url, {
-                method: 'GET',
-                headers: {
-                    'accept': 'application/json',
-                },
-            }).then(data => ({ phone, data }))
-              .catch(error => ({ phone, error: error.message || 'Unknown error' }));
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // Set timeout to 5 seconds
+
+            try {
+                const response = await fetch(`https://api.blacklistalliance.net/lookup?key=${apiKey}&phone=${phone}`, {
+                    method: 'GET',
+                    headers: {
+                        'accept': 'application/json',
+                    },
+                    signal: controller.signal,
+                });
+
+                if (!response.ok) {
+                    const errorResponse = await response.json();
+                    console.error('Error fetching data from lookup API:', errorResponse);
+                    return { phone, error: errorResponse };
+                }
+
+                return { phone, data: await response.json() };
+            } catch (error) {
+                if (error instanceof Error && error.name === 'AbortError') {
+                    console.error(`Request for ${phone} timed out.`);
+                    return { phone, error: 'Request timed out' };
+                } else {
+                    console.error('Error fetching data from lookup API:', error);
+                    return { phone, error: 'Server error' };
+                }
+            } finally {
+                clearTimeout(timeoutId);
+            }
         }));
 
         console.log(results);
@@ -45,6 +48,6 @@ export async function POST(req: Request) {
 
     } catch (error) {
         console.error('Server error:', error);
-        return NextResponse.json({ error: 'Server error', details: error || 'Unknown error' }, { status: 500 });
+        return NextResponse.json({ error: 'Server error', details: error }, { status: 500 });
     }
 }
