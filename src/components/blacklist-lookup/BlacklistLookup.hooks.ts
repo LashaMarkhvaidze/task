@@ -3,7 +3,9 @@ import { generateRandomPhoneNumbers } from "@/utils/generateRandomPhoneNumbers";
 import { BlacklistLookupResultProps } from './BlacklistLookup.types';
 
 const useBlacklistLookup = () => {
-    const [results, setResults] = useState<BlacklistLookupResultProps | null>(null);
+    const [results, setResults] = useState<{
+        [phone: string]: BlacklistLookupResultProps;
+    }>({});
     const [loading, setLoading] = useState(false);
     const [timeTaken, setTimeTaken] = useState<number | null>(null);
     const [generatedNumbers, setGeneratedNumbers] = useState<string[]>([]);
@@ -11,16 +13,15 @@ const useBlacklistLookup = () => {
     const handleGenerateNumbers = () => {
         const numbers = generateRandomPhoneNumbers(900, 1200);
         setGeneratedNumbers(numbers);
-        setResults(null);
+        setResults({});
         setTimeTaken(null);
     };
 
     const handleCheckBlacklist = async () => {
         setLoading(true);
-        setResults(null);
+        setResults({});
         setTimeTaken(null);
 
-        // Measure time
         const startTime = performance.now();
 
         try {
@@ -29,13 +30,24 @@ const useBlacklistLookup = () => {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ numbers: generatedNumbers }), // Use generated numbers
+                body: JSON.stringify({ numbers: generatedNumbers }),
             });
 
-            const data: BlacklistLookupResultProps = await response.json();
+            if (!response.ok) {
+                const errorResponse = await response.json();
+                console.error('Error fetching data from API:', errorResponse);
+                setResults({}); 
+            } else {
+                const data = await response.json();
+                const formattedObject = data.reduce((acc: { [phone: string]: BlacklistLookupResultProps }, { phone, data }: { phone: string, data: BlacklistLookupResultProps }) => {
+                    acc[phone] = data;
+                    return acc;
+                  }, {});
+                setResults(formattedObject); 
+            }
+
             const endTime = performance.now();
             setTimeTaken(endTime - startTime);
-            setResults(data);
         } catch (error) {
             console.error('Error:', error);
         } finally {

@@ -1,0 +1,2 @@
+export const blacklist_lookup_table_keys = ['sid', 'status', 'message', 'code', 'offset', 'phone', 'results', 'time', 'scrubs']
+export const blacklist_lookup_table_labels = ['Phone Number', 'SID', 'Status', 'Message', 'Code', 'Offset', 'Phone', 'Results', 'Time', 'Scrubs', 'Carrier']
